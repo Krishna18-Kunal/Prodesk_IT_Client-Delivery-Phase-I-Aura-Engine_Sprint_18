@@ -1,133 +1,228 @@
-# Aura Engine — Enterprise Inventory & Analytics MVP
 
-A commercial-style full-stack inventory dashboard built with React + Vite, Node.js + Express, MongoDB/Mongoose, Zod, and Recharts. All data is synthetic. The public project name is **Aura Engine**; do not publish the confidential client name or real client data.
+# Aura Engine — Inventory Management Dashboard
 
-## Architecture
+A full-stack inventory management dashboard built with **React, Vite, Node.js, Express, and MongoDB**. The application helps manage product inventory, explore records with server-side filtering and pagination, review inventory analytics, and export filtered data to CSV.
 
-- `backend/`: REST API, Mongoose model/indexes, controllers, Zod validation, 50,000-record seeder.
-- `frontend/`: React dashboard, debounced search, server-side pagination, filters, sorting, charts, CSV export.
-- API health: `GET /api/health`
-- Inventory: `GET /api/inventory?page=1&limit=50&search=laptop&category=Electronics&maxStock=20&minPrice=10&maxPrice=500&sort=-price`
-- Analytics: `GET /api/analytics`
-- Categories: `GET /api/inventory/categories`
-- CRUD: `POST /api/inventory`, `PUT /api/inventory/:id`, `DELETE /api/inventory/:id`
+## Features
 
-## Requirements
+### Dashboard and Inventory
+- Inventory overview with key inventory metrics.
+- Product table backed by MongoDB.
+- Server-side pagination.
+- Debounced product search.
+- Category, stock, and price filters.
+- Sortable inventory columns.
+- CSV export for filtered inventory.
 
-- Node.js 20+
-- MongoDB 6+ (local MongoDB or MongoDB Atlas)
+### Analytics
+- Inventory analytics using MongoDB aggregation pipelines.
+- Dashboard visualizations using Recharts.
+- API-driven analytics data.
+
+### Backend
+- Node.js and Express REST API.
+- MongoDB with Mongoose.
+- Product CRUD endpoints.
+- Request validation with Zod.
+- Centralized error handling.
+- Helmet security headers, CORS configuration, and rate limiting.
+- Seed script for generating 50,000 synthetic inventory products.
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, Recharts |
+| Backend | Node.js, Express |
+| Database | MongoDB, Mongoose |
+| Validation | Zod |
+| Development | npm, Git |
+
+## Project Structure
+
+```text
+aura-engine/
+├── backend/
+│   ├── scripts/
+│   │   └── seed.js
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   └── utils/
+│   ├── .env.example
+│   ├── package.json
+│   └── server.js
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── services/
+│   │   ├── App.jsx
+│   │   └── styles.css
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.js
+├── .gitignore
+├── Prompts.md
+└── README.md
+```
+
+## Prerequisites
+
+- Node.js (LTS version recommended)
 - npm
+- MongoDB Atlas or local MongoDB
+- Git (optional)
 
-## 1. Configure and run backend
+## Local Setup
+
+###  Configure Backend
 
 ```bash
 cd backend
-cp .env.example .env
-# Set MONGODB_URI and optionally PORT / CORS_ORIGIN
 npm install
+copy .env.example .env
+```
+
+Configure `backend/.env`:
+
+```env
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=mongodb+srv://<USERNAME>:<PASSWORD>@<CLUSTER>/<DATABASE>?retryWrites=true&w=majority
+CORS_ORIGIN=http://localhost:5173
+```
+
+For local MongoDB:
+
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/aura_engine
+```
+
+Use your own database credentials. Never publish your `.env` file.
+
+###  Seed Sample Inventory Data
+
+From the backend directory:
+
+```bash
 npm run seed
+```
+
+The seed script replaces the documents in the configured products collection with 50,000 synthetic product records.
+
+**Important:** Run this only against a dedicated development or test database. Never run it against production or a database containing data you need to keep.
+
+###  Start Backend
+
+```bash
 npm run dev
 ```
 
-The seeder inserts 50,000 synthetic products in batches. It clears only the collection configured by `MONGODB_URI` before inserting. **Never run the seeder against a production database containing real data.**
+Backend URL:
 
-Backend defaults to `http://localhost:5000`.
+```text
+http://localhost:5000
+```
 
-## 2. Run frontend
+Health check:
+
+```text
+http://localhost:5000/api/health
+```
+
+###  Configure Frontend
 
 Open a second terminal:
 
 ```bash
 cd frontend
-cp .env.example .env
 npm install
+copy .env.example .env
+```
+
+Configure `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+###  Start Frontend
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:5173`. The frontend calls `VITE_API_URL` (default `http://localhost:5000/api`).
-
-## 3. Verify API with Postman
-
-1. `GET http://localhost:5000/api/health`
-2. `GET http://localhost:5000/api/inventory?search=laptop&limit=5`
-3. `GET http://localhost:5000/api/analytics`
-4. Try invalid data with `POST /api/inventory`, e.g. `{ "productName":"Bad item", "sku":"BAD-001", "category":"Electronics", "price":5, "cost":10, "stockQuantity":4, "reorderLevel":2 }`. It should return HTTP 400 because price is below cost.
-
-## API contract
-
-### Inventory query parameters
-- `page`: positive integer, default 1
-- `limit`: 1–1000, default 50 (UI uses 50)
-- `search`: MongoDB text search across product name, SKU and category
-- `category`: exact category
-- `maxStock`: maximum stock quantity
-- `minPrice`, `maxPrice`: inclusive price bounds
-- `sort`: allow-listed field, optionally prefixed with `-`; e.g. `-price`, `productName`, `stockQuantity`
-
-Response:
-```json
-{
-  "success": true,
-  "data": [],
-  "pagination": {
-    "totalRecords": 50000,
-    "totalPages": 1000,
-    "currentPage": 1,
-    "hasNextPage": true,
-    "limit": 50
-  }
-}
-```
-
-Analytics response contains `summary`, `restockPriority` (10 lowest-stock products), and `categoryValuation` (sum of price × stock by category). The server performs the calculations in MongoDB; it does not load all products into Node memory.
-
-## Performance and production notes
-
-- Individual indexes exist for `sku`, `category`, and `productName`; compound text index supports search. SKU is unique.
-- Pagination is server-side. The UI requests 50 rows per page.
-- Search debounce is 500 ms and stale requests are cancelled.
-- API validates pagination, sorting and numeric filters; sort fields are allow-listed.
-- CSV export downloads every matching record in chunks (up to 1,000 per request) using the active filters, not only the current page.
-- For production, add authentication/authorization, rate limiting, audit logging, monitoring, backups, HTTPS, secret management, and load tests. This MVP intentionally does not pretend those enterprise controls are already implemented.
-- Regex/substring search and unbounded exports are intentionally avoided. MongoDB text search is token-based; test real search expectations and tune indexes with `explain("executionStats")`.
-- Analytics is computed with aggregation pipelines. For very high write volume, consider pre-aggregated/materialized analytics and caching.
-
-## Deployment outline
-
-### Backend (Render / Railway / similar)
-- Root directory: `backend`
-- Build command: `npm install`
-- Start command: `npm start`
-- Add `MONGODB_URI`, `CORS_ORIGIN` (your deployed frontend URL), and `NODE_ENV=production`.
-- Do not commit `.env`.
-
-### Frontend (Vercel)
-- Root directory: `frontend`
-- Build command: `npm run build`
-- Output directory: `dist`
-- Add `VITE_API_URL=https://YOUR-BACKEND-DOMAIN/api`.
-- Redeploy after environment changes.
-
-## Demo video (3–5 minutes)
-1. Explain the operational problem and business value.
-2. Show the dashboard KPIs and charts.
-3. Open DevTools Network and show each page request returns 50 rows.
-4. Search for `laptop`; explain the 500 ms debounce and server-side search.
-5. Apply category, stock and price filters; sort by price.
-6. Export CSV and open it.
-7. In Postman, show `?search=laptop&limit=5`, analytics response/time, and invalid POST returning 400.
-8. State that the dataset is synthetic and the MVP requires security hardening before handling real client data.
-
-## Project structure
+Open:
 
 ```text
-aura-engine/
-├── backend/
-│   ├── src/{config,controllers,middleware,models,routes,utils}
-│   ├── scripts/seed.js
-│   └── server.js
-├── frontend/
-│   └── src/{components,hooks,services}
-├── Prompts.md
-└── README.md
+http://localhost:5173
 ```
+
+## API Overview
+
+Base URL:
+
+```text
+http://localhost:5000/api
+```
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/health` | API health check |
+| GET | `/inventory` | List inventory |
+| GET | `/inventory/categories` | Retrieve categories |
+| GET | `/analytics` | Dashboard analytics |
+| POST | `/inventory` | Create product |
+| PUT | `/inventory/:id` | Update product |
+| DELETE | `/inventory/:id` | Delete product |
+
+Example:
+
+```http
+GET /api/inventory?page=1&limit=5&search=laptop
+```
+
+The inventory listing supports pagination, search, category, stock and price filters, and sorting. Refer to the backend route/controller implementation for exact accepted query parameter names and values.
+
+## Testing Checklist
+
+- [ ] Backend connects to MongoDB.
+- [ ] Health endpoint returns success.
+- [ ] Inventory API returns product records.
+- [ ] Dashboard loads inventory data.
+- [ ] Analytics page loads charts and metrics.
+- [ ] Search works.
+- [ ] Category, stock and price filters work.
+- [ ] Sorting works.
+- [ ] Pagination works.
+- [ ] CSV export works.
+- [ ] Product CRUD operations work.
+
+## Environment Variables
+
+### Backend
+
+| Variable | Description |
+|---|---|
+| PORT | Backend server port |
+| NODE_ENV | Runtime environment |
+| MONGODB_URI | MongoDB connection string |
+| CORS_ORIGIN | Allowed frontend origin(s) |
+
+
+Never put database credentials or private API keys in frontend variables prefixed with `VITE_`.
+
+## Security and Production Readiness
+
+- Keep `.env` files and secrets out of Git.
+- Restrict MongoDB network access.
+- Use a least-privilege database user.
+- Configure production CORS with trusted origins only.
+- Add authentication and role-based authorization before exposing write operations to real users.
+- Add audit logging, backups and monitoring as required.
+- Review dependency audit findings and update packages carefully.
+- Test deployment settings under realistic load.
